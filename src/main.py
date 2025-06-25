@@ -69,25 +69,34 @@ async def health_check():
     }
 
 @app.post("/api/book")
-async def book_appointment(request: BookingRequest):
-    """Direct booking endpoint"""
+async def book_meeting_endpoint(request: dict):
+    """Enhanced booking endpoint with Meet link support"""
     try:
-        datetime_str = f"{request.date}T{request.time}:00"
+        # Extract booking details
+        datetime_str = request.get("datetime")
+        duration = request.get("duration", 60)
+        title = request.get("title", "Meeting")
+        description = request.get("description", "")
+        add_meet_link = request.get("add_meet_link", True)
+        attendees = request.get("attendees", [])
         
+        # Book the meeting
         result = calendar_service.book_appointment(
             datetime_str=datetime_str,
-            duration_minutes=request.duration,
-            title=request.description,
-            description=request.description
+            duration_minutes=duration,
+            title=title,
+            description=description,
+            add_meet_link=add_meet_link,
+            attendees=attendees
         )
         
-        if result['success']:
-            return {"message": "Appointment booked successfully", "event_link": result.get('html_link')}
-        else:
-            raise HTTPException(status_code=400, detail={"error": result['message']})
-            
+        return result
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail={"error": str(e)})
+        return {
+            "success": False,
+            "message": f"Booking failed: {str(e)}"
+        }
 
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):

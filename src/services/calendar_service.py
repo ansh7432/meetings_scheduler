@@ -315,25 +315,23 @@ class CalendarService:
             traceback.print_exc()
             return []
 
-    def book_appointment(self, datetime_str: str, duration_minutes: int, title: str, description: str = ""):
-        """Book an appointment with proper timezone handling"""
+    def book_appointment(self, datetime_str: str, duration_minutes: int, title: str, description: str = "", add_meet_link: bool = True, attendees: list = None):
+        """Book an appointment with Google Meet link and attendees"""
         try:
             if not self.service:
                 self.authenticate()
             
-            print(f"DEBUG: Booking appointment at {datetime_str}")
+            print(f"🔄 [BOOKING] Scheduling: {title} at {datetime_str} for {duration_minutes} minutes")
             
             # Parse the datetime string and handle timezone
             if datetime_str.endswith('+05:30') or datetime_str.endswith('+00:00'):
                 start_time = datetime.fromisoformat(datetime_str)
             else:
-                # Assume local timezone if no timezone info
                 start_time = self.local_timezone.localize(datetime.fromisoformat(datetime_str))
             
             end_time = start_time + timedelta(minutes=duration_minutes)
             
-            print(f"DEBUG: Booking from {start_time} to {end_time}")
-            
+            # Build event object
             event = {
                 'summary': title,
                 'description': description,
@@ -346,10 +344,39 @@ class CalendarService:
                     'timeZone': str(end_time.tzinfo),
                 },
             }
-
-            event_result = self.service.events().insert(calendarId='primary', body=event).execute()
             
-            print(f"DEBUG: Successfully booked event: {event_result.get('htmlLink')}")
+            # Add Google Meet conference link
+            if add_meet_link:
+                event['conferenceData'] = {
+                    'createRequest': {
+                        'requestId': f"meet-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        'conferenceSolutionKey': {
+                            'type': 'hangoutsMeet'
+                        }
+                    }
+                }
+            
+            # Add attendees if provided
+            if attendees:
+                event['attendees'] = [{'email': email} for email in attendees]
+            
+            # Create the event with conference data
+            event_result = self.service.events().insert(
+                calendarId='primary', 
+                body=event,
+                conferenceDataVersion=1 if add_meet_link else 0,
+                sendUpdates='all' if attendees else 'none'
+            ).execute()
+            
+            print(f"✅ [BOOKING] Successfully created event: {event_result.get('id')}")
+            
+            # Extract Google Meet link if available
+            meet_link = None
+            if 'conferenceData' in event_result and 'entryPoints' in event_result['conferenceData']:
+                for entry in event_result['conferenceData']['entryPoints']:
+                    if entry['entryPointType'] == 'video':
+                        meet_link = entry['uri']
+                        break
             
             # Force refresh service to get updated calendar data
             self.service = None
@@ -358,14 +385,22 @@ class CalendarService:
                 'success': True,
                 'event_id': event_result['id'],
                 'html_link': event_result.get('htmlLink', ''),
-                'message': f"✅ Appointment '{title}' booked successfully!"
+                'meet_link': meet_link,
+                'calendar_link': event_result.get('htmlLink', ''),
+                'message': f"✅ Meeting '{title}' booked successfully!",
+                'details': {
+                    'title': title,
+                    'start_time': start_time.strftime('%Y-%m-%d %H:%M'),
+                    'duration': duration_minutes,
+                    'attendees_count': len(attendees) if attendees else 0
+                }
             }
             
         except Exception as e:
-            print(f"Error booking appointment: {e}")
+            print(f"❌ [BOOKING] Error: {e}")
             import traceback
             traceback.print_exc()
             return {
                 'success': False,
-                'message': f"❌ Error booking appointment: {str(e)}"
+                'message': f"❌ Booking failed: {str(e)}"
             }

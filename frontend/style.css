@@ -332,33 +332,124 @@ footer {visibility: hidden;}
     border-color: #475569;
 }
 
+/* Time Slot Cards - Enhanced */
+.time-slot-card {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border: 1px solid #475569;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 0.5rem 0;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.time-slot-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+}
+
+.time-slot-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.time-slot-card:hover::before {
+    opacity: 1;
+}
+
 .time-slot-time {
     font-weight: 600;
     color: #f8fafc;
-    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
 }
 
-/* Success Messages */
-.stSuccess {
-    background: #14532d;
-    border: 1px solid #16a34a;
-    border-radius: 8px;
-    color: #4ade80;
+.time-slot-duration {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    font-weight: 400;
 }
 
-/* Info Messages */
-.stInfo {
-    background: #1e3a8a;
-    border: 1px solid #3b82f6;
-    border-radius: 8px;
-    color: #93c5fd;
+/* Booking Form Styling */
+.stExpander {
+    background: #1e293b !important;
+    border: 1px solid #334155 !important;
+    border-radius: 12px !important;
+    margin-top: 0.5rem !important;
 }
 
-.stWarning {
-    background: #92400e;
-    border: 1px solid #f59e0b;
-    border-radius: 8px;
-    color: #fbbf24;
+.stExpander > div > div {
+    background: #1e293b !important;
+    padding: 1rem !important;
+}
+
+/* Form Buttons */
+.stForm button[type="submit"] {
+    background: #22c55e !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    transition: all 0.2s !important;
+}
+
+.stForm button[type="submit"]:hover {
+    background: #16a34a !important;
+    transform: translateY(-1px) !important;
+}
+
+.stForm button[type="submit"]:last-child {
+    background: #ef4444 !important;
+}
+
+.stForm button[type="submit"]:last-child:hover {
+    background: #dc2626 !important;
+}
+
+/* Select Box Styling */
+.stSelectbox > div > div {
+    background: #1e293b !important;
+    border: 1px solid #475569 !important;
+    border-radius: 8px !important;
+}
+
+.stSelectbox > div > div > div {
+    color: #e2e8f0 !important;
+}
+
+/* Text Area Styling */
+.stTextArea > div > div > textarea {
+    background: #1e293b !important;
+    border: 1px solid #475569 !important;
+    border-radius: 8px !important;
+    color: #e2e8f0 !important;
+    padding: 0.75rem !important;
+}
+
+.stTextArea > div > div > textarea:focus {
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Checkbox Styling */
+.stCheckbox > div {
+    color: #e2e8f0 !important;
+}
+
+.stCheckbox input {
+    accent-color: #3b82f6 !important;
 }
 
 /* Containers */

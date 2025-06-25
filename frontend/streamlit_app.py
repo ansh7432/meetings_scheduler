@@ -111,6 +111,40 @@ Try asking about your calendar availability!""",
             "intent": "general_chat"
         }
 
+def book_meeting_with_details(booking_data):
+    """Book meeting with enhanced details including Meet link"""
+    try:
+        # Prepare booking request
+        booking_request = {
+            "datetime": booking_data["slot"]["datetime"],
+            "duration": booking_data["duration"],
+            "title": booking_data["title"],
+            "description": booking_data["description"],
+            "add_meet_link": booking_data["add_meet_link"],
+            "attendees": booking_data["attendees"]
+        }
+        
+        if check_api_health():
+            # Send to live API
+            response = requests.post(
+                f"{API_BASE_URL}/api/book",
+                json=booking_request,
+                timeout=30
+            )
+            return response.json() if response.status_code == 200 else {"success": False, "message": f"API Error: {response.status_code}"}
+        else:
+            # Demo mode response
+            return {
+                "success": True,
+                "message": "Meeting booked successfully (Demo Mode)",
+                "meet_link": "https://meet.google.com/demo-meeting-link",
+                "calendar_link": "https://calendar.google.com/calendar/demo-event",
+                "event_id": "demo_event_123"
+            }
+            
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
 def auto_save_chat():
     """Auto-save current chat to history when user sends a message"""
     if "chat_history" not in st.session_state:
@@ -307,12 +341,11 @@ Just ask me in plain English!"""
         """, unsafe_allow_html=True)
     
     # Main chat interface
-    # st.markdown('<div class="main-container">', unsafe_allow_html=True)
     st.markdown('<div class="section-header">💬 Conversation</div>', unsafe_allow_html=True)
     
     # Chat container with messages and input inside
     with st.container():
-        # Display messages - Increased height from 450 to 600
+        # Display messages
         messages_container = st.container(height=700)
         with messages_container:
             for message in st.session_state.messages:
@@ -341,38 +374,133 @@ Just ask me in plain English!"""
                 # Auto-save after assistant responds
                 auto_save_chat()
                 
-                # Show time slots
+                # Show time slots with enhanced booking form
                 if available_slots:
                     st.markdown("---")
-                    st.markdown("**📅 Available Times**")
+                    st.markdown("**📅 Available Times - Click to Book**")
                     
-                    cols = st.columns(3)
-                    for i, slot in enumerate(available_slots[:9]):
-                        with cols[i % 3]:
+                    # Create booking form for each slot
+                    cols = st.columns(2)  # Changed to 2 columns for better spacing
+                    for i, slot in enumerate(available_slots[:8]):  # Show max 8 slots
+                        with cols[i % 2]:
+                            # Time slot display card
                             st.markdown(f"""
-                            <div class="time-slot">
-                                <div class="time-slot-time">🕐 {slot['start']}</div>
-                                <div style="font-size: 0.8rem; color: #94a3b8;">{slot['end']}</div>
+                            <div class="time-slot-card">
+                                <div class="time-slot-time">🕐 {slot['start']} - {slot['end']}</div>
+                                <div class="time-slot-duration">{slot.get('duration', '60')} minutes</div>
                             </div>
                             """, unsafe_allow_html=True)
                             
-                            meeting_title = st.text_input(
-                                "Title", 
-                                value="Meeting", 
-                                key=f"title_{i}_{st.session_state.session_id}",
-                                placeholder="Meeting title"
-                            )
+                            # Book button that opens booking form
+                            if st.button(f"📅 Book {slot['start']}", key=f"book_btn_{i}_{st.session_state.session_id}", use_container_width=True):
+                                st.session_state[f"booking_form_{i}"] = True
                             
-                            if st.button(f"Book {slot['start']}", key=f"book_{i}_{st.session_state.session_id}", use_container_width=True):
-                                st.success(f"✅ Booked: {meeting_title} at {slot['start']}")
-                                confirmation = f"✅ **Confirmed!** {meeting_title} scheduled for {slot['start']} - {slot['end']}"
-                                st.session_state.messages.append({"role": "assistant", "content": confirmation})
-                                auto_save_chat()  # Auto-save after booking
-                                st.balloons()
-                                st.rerun()
+                            # Show booking form if button was clicked
+                            if st.session_state.get(f"booking_form_{i}", False):
+                                with st.expander(f"📝 Book Meeting at {slot['start']}", expanded=True):
+                                    with st.form(key=f"booking_form_{i}_{st.session_state.session_id}"):
+                                        st.write(f"**📅 Selected Time:** {slot['start']} - {slot['end']}")
+                                        
+                                        # Meeting details form
+                                        meeting_title = st.text_input(
+                                            "Meeting Title*", 
+                                            value="Team Meeting",
+                                            key=f"title_{i}_{st.session_state.session_id}",
+                                            placeholder="Enter meeting title"
+                                        )
+                                        
+                                        # Duration selection
+                                        duration_options = [30, 45, 60, 90, 120]
+                                        default_duration = 60
+                                        duration = st.selectbox(
+                                            "Duration (minutes)*",
+                                            duration_options,
+                                            index=duration_options.index(default_duration),
+                                            key=f"duration_{i}_{st.session_state.session_id}"
+                                        )
+                                        
+                                        # Meeting description
+                                        description = st.text_area(
+                                            "Description (Optional)",
+                                            placeholder="Add meeting agenda or notes...",
+                                            key=f"description_{i}_{st.session_state.session_id}",
+                                            height=80
+                                        )
+                                        
+                                        # Add Google Meet link option
+                                        add_meet_link = st.checkbox(
+                                            "🔗 Add Google Meet link",
+                                            value=True,
+                                            key=f"meet_link_{i}_{st.session_state.session_id}",
+                                            help="Automatically generate a Google Meet link for the meeting"
+                                        )
+                                        
+                                        # Attendees (optional)
+                                        attendees = st.text_input(
+                                            "Attendees (Optional)",
+                                            placeholder="Enter email addresses separated by commas",
+                                            key=f"attendees_{i}_{st.session_state.session_id}",
+                                            help="Add attendees who will receive calendar invitations"
+                                        )
+                                        
+                                        # Form buttons
+                                        col1, col2 = st.columns(2)
+                                        with col1:
+                                            if st.form_submit_button("✅ Confirm Booking", use_container_width=True):
+                                                # Validate form
+                                                if not meeting_title.strip():
+                                                    st.error("Please enter a meeting title")
+                                                else:
+                                                    # Process booking
+                                                    booking_data = {
+                                                        "slot": slot,
+                                                        "title": meeting_title.strip(),
+                                                        "duration": duration,
+                                                        "description": description.strip(),
+                                                        "add_meet_link": add_meet_link,
+                                                        "attendees": [email.strip() for email in attendees.split(",") if email.strip()] if attendees else []
+                                                    }
+                                                    
+                                                    # Send booking request
+                                                    booking_response = book_meeting_with_details(booking_data)
+                                                    
+                                                    if booking_response.get("success"):
+                                                        st.success("🎉 Meeting booked successfully!")
+                                                        
+                                                        # Create confirmation message
+                                                        confirmation_msg = f"""✅ **Meeting Confirmed!**
+
+📅 **{meeting_title}**
+🕒 **Time:** {slot['start']} - {slot['end']}
+⏱️ **Duration:** {duration} minutes
+📝 **Description:** {description if description else 'No description'}"""
+                                                        
+                                                        if booking_response.get("meet_link"):
+                                                            confirmation_msg += f"\n🔗 **Google Meet:** {booking_response['meet_link']}"
+                                                        
+                                                        if booking_response.get("calendar_link"):
+                                                            confirmation_msg += f"\n📅 **[View in Calendar]({booking_response['calendar_link']})**"
+                                                        
+                                                        # Add to chat history
+                                                        st.session_state.messages.append({
+                                                            "role": "assistant", 
+                                                            "content": confirmation_msg
+                                                        })
+                                                        auto_save_chat()
+                                                        
+                                                        # Clear form state
+                                                        st.session_state[f"booking_form_{i}"] = False
+                                                        
+                                                        st.balloons()
+                                                        st.rerun()
+                                                    else:
+                                                        st.error(f"❌ Booking failed: {booking_response.get('message', 'Unknown error')}")
+                                        
+                                        with col2:
+                                            if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                                st.session_state[f"booking_form_{i}"] = False
+                                                st.rerun()
             st.rerun()
-    
-    st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
