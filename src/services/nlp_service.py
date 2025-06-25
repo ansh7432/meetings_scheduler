@@ -62,7 +62,6 @@ class NLPService:
                         'original_text': user_input
                     }
                     
-                    # Extract time information
                     time_info = self.extract_datetime(user_input)
                     if time_info:
                         result.update(time_info)
@@ -80,20 +79,18 @@ class NLPService:
         user_input_lower = user_input.lower()
         result = {}
         
-        # Check for relative dates
         for time_phrase, date_obj in self.time_patterns.items():
             if time_phrase in user_input_lower:
                 result['date'] = date_obj.isoformat()
                 result['time_phrase'] = time_phrase
                 break
         
-        # Extract specific times - Enhanced for PM/AM handling
         time_patterns = [
-            r'(\d{1,2}):(\d{2})\s*(pm|am|p\.m\.|a\.m\.)',  # 5:30 PM
-            r'(\d{1,2})\s*(pm|am|p\.m\.|a\.m\.)',  # 5 PM
-            r'(\d{1,2}):(\d{2})',  # 17:30 (24 hour)
-            r'at\s+(\d{1,2}):?(\d{2})?\s*(pm|am)?',  # at 5:30 PM
-            r'between\s+(\d{1,2}):?(\d{2})?\s*(pm|am)',  # between 5:30 PM
+            r'(\d{1,2}):(\d{2})\s*(pm|am|p\.m\.|a\.m\.)',
+            r'(\d{1,2})\s*(pm|am|p\.m\.|a\.m\.)',
+            r'(\d{1,2}):(\d{2})',
+            r'at\s+(\d{1,2}):?(\d{2})?\s*(pm|am)?',
+            r'between\s+(\d{1,2}):?(\d{2})?\s*(pm|am)',
         ]
         
         for pattern in time_patterns:
@@ -101,33 +98,28 @@ class NLPService:
             if match:
                 hour = int(match.group(1))
                 
-                # Handle minutes
                 if len(match.groups()) >= 2 and match.group(2) and match.group(2).isdigit():
                     minute = int(match.group(2))
                 else:
                     minute = 0
                 
-                # Handle AM/PM
                 am_pm = None
                 for group in match.groups():
                     if group and ('am' in group or 'pm' in group):
                         am_pm = group
                         break
                 
-                # Convert to 24-hour format
                 if am_pm:
                     if 'pm' in am_pm.lower() and hour != 12:
                         hour += 12
                     elif 'am' in am_pm.lower() and hour == 12:
                         hour = 0
                 
-                # Validate hour range
                 if 0 <= hour <= 23 and 0 <= minute <= 59:
                     result['time'] = f"{hour:02d}:{minute:02d}"
                     result['requested_hour'] = hour
                     break
         
-        # Extract duration
         duration_match = re.search(r'(\d+)\s*[-–]?\s*(hour|minute|hr|min)', user_input_lower)
         if duration_match:
             duration_value = int(duration_match.group(1))
@@ -138,7 +130,7 @@ class NLPService:
             else:
                 result['duration'] = duration_value
         else:
-            result['duration'] = 60  # Default 1 hour
+            result['duration'] = 60
         
         return result
 
