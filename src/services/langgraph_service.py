@@ -300,19 +300,19 @@ class LangGraphSchedulingAgent:
                 if morning_slots:
                     response += f"\n🌅 **Morning ({len(morning_slots)} slots):**\n"
                     for slot in morning_slots:
-                        response += f"• ✅ {slot['start']} - {slot['end']} (FREE)\n"
+                        response += f"• {slot['start']} - {slot['end']}\n"
                 
                 if afternoon_slots:
                     response += f"\n☀️ **Afternoon ({len(afternoon_slots)} slots):**\n"
                     for slot in afternoon_slots:
-                        response += f"• ✅ {slot['start']} - {slot['end']} (FREE)\n"
+                        response += f"• {slot['start']} - {slot['end']}\n"
                 
                 if evening_slots:
                     response += f"\n🌙 **Evening ({len(evening_slots)} slots):**\n"
                     for slot in evening_slots:
-                        response += f"• ✅ {slot['start']} - {slot['end']} (FREE)\n"
+                        response += f"• {slot['start']} - {slot['end']}\n"
                 
-                response += f"\n📊 **Total FREE slots: {len(available_slots)}**"
+                response += f"\n📊 **Total available slots: {len(available_slots)}**"
                 
                 if len(available_slots) > 0:
                     response += "\n\n💡 All conflicts have been filtered out. Click any slot below to book!"

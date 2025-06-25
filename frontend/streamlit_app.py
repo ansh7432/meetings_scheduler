@@ -3,146 +3,44 @@ import requests
 import json
 from datetime import datetime
 import os
+import time
+import uuid
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="AI Calendar Booking Agent",
+    page_title="AI Calendar Assistant",
     page_icon="📅",
     layout="wide"
 )
 
-# API configuration - fix the detection logic
-try:
-    # Check if running locally vs cloud
-    is_local = not st.get_option("server.headless")  # headless=True in cloud, False locally
-    if is_local:
-        API_BASE_URL = "http://localhost:8000"
-    else:
-        API_BASE_URL = os.getenv("API_BASE_URL", "https://your-fastapi-app.herokuapp.com")
-except:
-    # Fallback - assume local if can't determine
-    API_BASE_URL = "http://localhost:8000"
+# Load CSS
+def load_css():
+    try:
+        css_path = os.path.join(os.path.dirname(__file__), 'style.css')
+        with open(css_path, 'r') as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        try:
+            with open('style.css', 'r') as f:
+                st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+        except FileNotFoundError:
+            pass
 
-# Check if API is available
+# API configuration
+try:
+    is_local = not st.get_option("server.headless")
+    API_BASE_URL = "http://localhost:8000" if is_local else os.getenv("API_BASE_URL", "demo_mode")
+except:
+    API_BASE_URL = "demo_mode"
+
 def check_api_health():
+    if API_BASE_URL == "demo_mode":
+        return False
     try:
         response = requests.get(f"{API_BASE_URL}/health", timeout=5)
         return response.status_code == 200
     except:
         return False
-
-# Enhanced CSS
-st.markdown("""
-<style>
-    .main-title {
-        text-align: center;
-        color: #2e3440;
-        background: linear-gradient(90deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 3rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .subtitle {
-        text-align: center;
-        color: #5e81ac;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
-    
-    .demo-mode {
-        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 12px;
-        text-align: center;
-        margin: 1rem 0;
-        font-weight: 600;
-    }
-    
-    .demo-chat {
-        background: #f8f9fa;
-        border: 1px solid #dee2e6;
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-    }
-    
-    .chat-container {
-        height: 500px;
-        overflow-y: auto;
-        padding: 1rem;
-        background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 15px;
-        border: 1px solid #dee2e6;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    [data-testid="chat-message-user"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 18px 18px 5px 18px;
-        padding: 0.8rem 1rem;
-        margin-left: 25%;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-    }
-    
-    [data-testid="chat-message-user"] p {
-        color: white !important;
-        font-weight: 500;
-        margin: 0;
-    }
-    
-    [data-testid="chat-message-assistant"] {
-        background: white;
-        border-radius: 18px 18px 18px 5px;
-        padding: 0.8rem 1rem;
-        margin-right: 25%;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    
-    [data-testid="chat-message-assistant"] p {
-        color: #333 !important;
-        margin: 0;
-    }
-    
-    .time-slot {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 12px;
-        margin: 0.5rem 0;
-        text-align: center;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        font-weight: 600;
-        transition: transform 0.2s ease;
-    }
-    
-    .success-box {
-        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
-        color: white;
-        border-radius: 12px;
-        padding: 1rem;
-        margin: 1rem 0;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-        font-weight: 600;
-    }
-    
-    .feature-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 0.3rem 0.8rem;
-        border-radius: 15px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        margin: 0.2rem;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 def send_message(message: str):
     """Send message to the FastAPI backend"""
@@ -152,11 +50,7 @@ def send_message(message: str):
             json={"message": message, "session_id": st.session_state.session_id},
             timeout=30
         )
-        
-        if response.status_code == 200:
-            return response.json()
-        else:
-            return {"response": f"Error: {response.status_code}", "intent": "error"}
+        return response.json() if response.status_code == 200 else {"response": f"Error: {response.status_code}", "intent": "error"}
     except requests.exceptions.RequestException as e:
         return {"response": f"Connection error: {str(e)}", "intent": "error"}
 
@@ -166,22 +60,20 @@ def demo_response(message: str):
     
     if any(word in message_lower for word in ['free', 'available', 'availability', 'check']):
         return {
-            "response": """Here are your **AVAILABLE** time slots for **Today** (Demo Mode):
+            "response": """**Available time slots for today:**
 
-🌅 **Morning (3 slots):**
-• ✅ 9:00 AM - 10:00 AM (FREE)
-• ✅ 10:30 AM - 11:30 AM (FREE)
-• ✅ 11:00 AM - 12:00 PM (FREE)
+**Morning:**
+• 9:00 AM - 10:00 AM
+• 10:30 AM - 11:30 AM  
+• 11:00 AM - 12:00 PM
 
-☀️ **Afternoon (4 slots):**
-• ✅ 2:00 PM - 3:00 PM (FREE)
-• ✅ 2:30 PM - 3:30 PM (FREE)
-• ✅ 3:00 PM - 4:00 PM (FREE)
-• ✅ 4:30 PM - 5:30 PM (FREE)
+**Afternoon:**
+• 2:00 PM - 3:00 PM
+• 2:30 PM - 3:30 PM
+• 3:00 PM - 4:00 PM
+• 4:30 PM - 5:30 PM
 
-📊 **Total available: 7 slots**
-
-💡 **Demo Mode**: In full version, these would be your real Google Calendar slots with live conflict checking!""",
+Would you like to book one of these slots?""",
             "intent": "check_availability",
             "available_slots": [
                 {"start": "9:00 AM", "end": "10:00 AM", "datetime": "2025-06-25T09:00:00"},
@@ -195,279 +87,292 @@ def demo_response(message: str):
         }
     elif any(word in message_lower for word in ['book', 'schedule', 'meeting', 'appointment']):
         return {
-            "response": """✅ **Demo Booking Successful!**
+            "response": """✅ **Meeting scheduled successfully!**
 
-📅 **Meeting Details:**
-• **Date:** Today  
-• **Time:** 2:00 PM - 3:00 PM
-• **Duration:** 60 minutes
-• **Title:** Demo Meeting
-• **Status:** ✅ Confirmed (Demo)
+**Details:**
+• Date: Today
+• Time: 2:00 PM - 3:00 PM
+• Duration: 60 minutes
+• Status: Confirmed
 
-🎉 **In the full version:**
-- Creates real Google Calendar event
-- Sends email confirmations  
-- Prevents actual scheduling conflicts
-- Integrates with your live calendar
-
-**This demonstrates the complete booking flow!**""",
+*In demo mode - this would create a real calendar event.*""",
             "intent": "book_appointment",
             "booking_info": {"booked": True, "date": "2025-06-25", "time": "14:00", "duration": 60}
         }
     else:
         return {
-            "response": f"""🤖 **AI Calendar Assistant** (Demo Mode)
+            "response": f"""I can help you with:
 
-I understand: *"{message}"*
+• **Check availability** - "What times are free today?"
+• **Schedule meetings** - "Book a meeting at 2 PM"  
+• **Find time slots** - "Do you have time this Friday?"
 
-**I can help you with:**
-• 📅 **Check availability**: "What times are free today?"
-• 📝 **Schedule meetings**: "Book a meeting at 2 PM"  
-• 🔍 **Find slots**: "Do you have time this Friday?"
-• ⏰ **Manage calendar**: "Cancel my 3 PM meeting"
-
-**🚀 This demo showcases:**
-- Natural language understanding with LangGraph
-- Smart scheduling logic and conflict detection
-- Conversational AI with multi-turn dialogue
-- Professional booking interface
-
-**Try asking:** "What times are free today?" or "Schedule a meeting at 2 PM"
-
-**In production:** Connects to real Google Calendar API for live scheduling!""",
+Try asking about your calendar availability!""",
             "intent": "general_chat"
         }
 
-def book_slot(slot_datetime, duration=60, title="Meeting"):
-    """Book a specific time slot (demo version)"""
-    return {
-        "success": True, 
-        "message": f"✅ Demo: Would book '{title}' for {slot_datetime} ({duration} min). In full version, this creates a real calendar event!"
+def auto_save_chat():
+    """Auto-save current chat to history when user sends a message"""
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Only save if there's actual conversation (more than welcome message)
+    user_messages = [msg for msg in st.session_state.messages if msg["role"] == "user"]
+    if len(user_messages) == 0:
+        return
+    
+    # Check if current session already exists in history
+    current_session_id = st.session_state.session_id
+    existing_chat_index = None
+    
+    for i, chat in enumerate(st.session_state.chat_history):
+        if chat["session_id"] == current_session_id:
+            existing_chat_index = i
+            break
+    
+    chat_data = {
+        "id": str(uuid.uuid4()),  # Use UUID for unique IDs
+        "timestamp": datetime.now().strftime("%H:%M"),
+        "date": datetime.now().strftime("%b %d"),
+        "title": get_chat_title(st.session_state.messages),
+        "messages": st.session_state.messages.copy(),
+        "session_id": current_session_id,
+        "last_updated": time.time()
     }
+    
+    if existing_chat_index is not None:
+        # Update existing chat
+        st.session_state.chat_history[existing_chat_index] = chat_data
+    else:
+        # Add new chat
+        st.session_state.chat_history.append(chat_data)
+    
+    # Sort by last updated (most recent first)
+    st.session_state.chat_history.sort(key=lambda x: x["last_updated"], reverse=True)
+
+def get_chat_title(messages):
+    """Generate a title for the chat based on first user message"""
+    for msg in messages:
+        if msg["role"] == "user":
+            title = msg["content"][:35]
+            return title + "..." if len(msg["content"]) > 35 else title
+    return f"New Chat"
+
+def load_chat_from_history(chat_id):
+    """Load a specific chat from history"""
+    if "chat_history" in st.session_state:
+        for chat in st.session_state.chat_history:
+            if chat["id"] == chat_id:
+                st.session_state.messages = chat["messages"].copy()
+                st.session_state.session_id = chat["session_id"]
+                st.rerun()
+
+def start_new_chat():
+    """Start a new chat conversation"""
+    welcome_msg = """👋 **Welcome!**
+
+I can help you schedule meetings using natural language.
+
+**What would you like to do?**
+• Check your calendar availability
+• Schedule a new meeting
+• Find available time slots
+
+Just ask me in plain English!"""
+    
+    st.session_state.messages = [{"role": "assistant", "content": welcome_msg}]
+    st.session_state.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
+    st.rerun()
+
+def clear_all_history():
+    """Clear all chat history"""
+    st.session_state.chat_history = []
+    start_new_chat()
+
+def handle_quick_action(example):
+    """Handle quick action button clicks"""
+    st.session_state.messages.append({"role": "user", "content": example})
+    auto_save_chat()
+    response = send_message(example) if check_api_health() else demo_response(example)
+    st.session_state.messages.append({"role": "assistant", "content": response.get("response", "")})
+    auto_save_chat()
+    st.rerun()
 
 def main():
-    # Header
-    st.markdown('<h1 class="main-title">🤖 AI Calendar Assistant</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">Natural Language Calendar Booking with LangGraph</p>', unsafe_allow_html=True)
+    load_css()
     
-    # Check API availability
-    api_available = check_api_health()
-    
-    # Show demo mode banner
-    if not api_available:
-        st.markdown("""
-        <div class="demo-mode">
-            🚀 <strong>Live Demo Mode</strong><br>
-            Experience the full AI conversation flow! This showcases LangGraph workflows, natural language processing, and smart booking logic.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Feature badges
-        st.markdown("""
-        <div style="text-align: center; margin: 1rem 0;">
-            <span class="feature-badge">🤖 LangGraph AI</span>
-            <span class="feature-badge">💬 Natural Language</span>
-            <span class="feature-badge">📅 Smart Booking</span>
-            <span class="feature-badge">🔍 Conflict Detection</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Initialize session state
+    # Initialize session
     if "messages" not in st.session_state:
-        welcome_msg = """👋 **Welcome to the AI Calendar Assistant!**
+        welcome_msg = """👋 **Welcome!**
 
-I'm powered by **LangGraph** and can help you schedule appointments using natural language. 
+I can help you schedule meetings using natural language.
 
-**What I can do:**
-• 📅 Check your calendar availability
-• 📝 Schedule meetings and appointments  
-• 🔍 Find suitable time slots
-• 💬 Have natural conversations about your calendar
+**What would you like to do?**
+• Check your calendar availability
+• Schedule a new meeting
+• Find available time slots
 
-**How can I help you today?**"""
+Just ask me in plain English!"""
         
-        if not api_available:
-            welcome_msg += """\n\n🚀 **Demo Mode**: Try asking:
-• "What times are free today?"
-• "Schedule a meeting at 2 PM"
-• "Do you have any slots this afternoon?"
-
-*This demo showcases the complete AI booking workflow!*"""
-        
-        st.session_state.messages = [
-            {"role": "assistant", "content": welcome_msg}
-        ]
+        st.session_state.messages = [{"role": "assistant", "content": welcome_msg}]
     
     if "session_id" not in st.session_state:
-        st.session_state.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        st.session_state.session_id = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(uuid.uuid4())[:8]}"
     
-    # Create layout
-    col1, col2 = st.columns([3.5, 1])
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
     
-    with col1:
-        st.markdown("### 💬 Conversation")
+    # Create sidebar for chat history and quick actions
+    with st.sidebar:
+        st.markdown('<div class="chat-sidebar">', unsafe_allow_html=True)
         
-        # Chat container
-        chat_container = st.container(height=500)
+        # New Chat Button
+        if st.button("➕ New Chat", key="new_chat_btn", use_container_width=True):
+            start_new_chat()
         
-        with chat_container:
+        st.markdown("---")
+        
+        # Chat History
+        if st.session_state.chat_history:
+            st.markdown("### 📚 Recent Chats")
+            
+            for i, chat in enumerate(st.session_state.chat_history):
+                # Check if this is the current active chat
+                is_active = chat["session_id"] == st.session_state.session_id
+                
+                # Create unique key for each button
+                button_key = f"chat_btn_{chat['id']}_{i}"
+                
+                if st.button(
+                    chat["title"], 
+                    key=button_key, 
+                    use_container_width=True,
+                    help=f"{chat['date']} at {chat['timestamp']}"
+                ):
+                    load_chat_from_history(chat['id'])
+                
+                # Show active indicator
+                if is_active:
+                    st.markdown('<div class="active-indicator">📍 Current Chat</div>', unsafe_allow_html=True)
+        
+        else:
+            st.markdown("### 📚 Chat History")
+            st.markdown("*No previous chats*")
+            st.markdown("Start a conversation to see your chat history here!")
+        
+        st.markdown("---")
+        
+        # Quick Actions in Sidebar
+        st.markdown("### 💡 Quick Actions")
+        examples = [
+            "What times are free today?",
+            "Schedule a call for 2 PM", 
+            "Do you have slots Friday?",
+            "Book a 30-minute meeting",
+            "Check tomorrow's availability"
+        ]
+        
+        for i, example in enumerate(examples):
+            if st.button(example, key=f"quick_action_{i}_{st.session_state.session_id}", use_container_width=True):
+                handle_quick_action(example)
+        
+        # Clear History Button at bottom
+        if st.session_state.chat_history:
+            st.markdown("---")
+            if st.button("🗑️ Clear All History", key="clear_all_btn", use_container_width=True):
+                clear_all_history()
+        
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Main content area
+    # Header
+    st.markdown('<h1 class="main-title">📅 AI Calendar Assistant</h1>', unsafe_allow_html=True)
+    st.markdown('<p class="subtitle">Schedule meetings with natural language</p>', unsafe_allow_html=True)
+    
+    # Check API
+    api_available = check_api_health()
+    
+    # Status
+    if api_available:
+        st.markdown("""
+        <div class="status-banner status-live">
+            🟢 <strong>Connected</strong> - Live backend active
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="status-banner status-demo">
+            🟡 <strong>Demo Mode</strong> - Try the conversation flow
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Main chat interface
+    # st.markdown('<div class="main-container">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">💬 Conversation</div>', unsafe_allow_html=True)
+    
+    # Chat container with messages and input inside
+    with st.container():
+        # Display messages - Increased height from 450 to 600
+        messages_container = st.container(height=700)
+        with messages_container:
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
                     st.markdown(message["content"])
         
-        # Chat input
-        if prompt := st.chat_input("Ask me about scheduling... 💭"):
-            # Add user message to chat
+        # Chat Input inside the container
+        if prompt := st.chat_input("Type your message..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             
-            # Get AI response
-            with st.spinner("🤔 Processing with LangGraph..."):
-                if api_available:
-                    response = send_message(prompt)
-                else:
-                    response = demo_response(prompt)
-                
+            # Auto-save after user sends message
+            auto_save_chat()
+            
+            with st.spinner("Processing..."):
+                response = send_message(prompt) if api_available else demo_response(prompt)
                 ai_response = response.get("response", "Sorry, I couldn't process that.")
                 booking_info = response.get("booking_info", {})
                 available_slots = response.get("available_slots", [])
                 
-                # Show success message if booking was successful
                 if booking_info.get('booked'):
-                    st.markdown(f"""
-                    <div class="success-box">
-                        🎉 <strong>Demo Booking Confirmed!</strong><br>
-                        📅 {booking_info.get('date', 'Today')} at {booking_info.get('time', '2:00 PM')} ({booking_info.get('duration', 60)} min)
-                    </div>
-                    """, unsafe_allow_html=True)
-                    if not api_available:
-                        st.balloons()
+                    st.success("🎉 Meeting booked successfully!")
+                    st.balloons()
                 
-                # Display AI response
                 st.session_state.messages.append({"role": "assistant", "content": ai_response})
                 
-                # Show booking interface for available slots
+                # Auto-save after assistant responds
+                auto_save_chat()
+                
+                # Show time slots
                 if available_slots:
-                    st.markdown("### 📅 Available Time Slots")
-                    if not api_available:
-                        st.info("🚀 Demo Mode: These are sample time slots. Full version shows your real Google Calendar availability!")
+                    st.markdown("---")
+                    st.markdown("**📅 Available Times**")
                     
-                    # Show slots in a nice grid
                     cols = st.columns(3)
-                    
-                    for i, slot in enumerate(available_slots[:12]):
-                        col_idx = i % 3
-                        
-                        with cols[col_idx]:
-                            st.markdown(f'''
+                    for i, slot in enumerate(available_slots[:9]):
+                        with cols[i % 3]:
+                            st.markdown(f"""
                             <div class="time-slot">
-                                🕐 {slot['start']} - {slot['end']}
+                                <div class="time-slot-time">🕐 {slot['start']}</div>
+                                <div style="font-size: 0.8rem; color: #94a3b8;">{slot['end']}</div>
                             </div>
-                            ''', unsafe_allow_html=True)
+                            """, unsafe_allow_html=True)
                             
-                            # Meeting title input
                             meeting_title = st.text_input(
-                                "Meeting Title", 
+                                "Title", 
                                 value="Meeting", 
-                                key=f"title_{i}_{slot['start']}_{len(st.session_state.messages)}",
-                                placeholder="Enter meeting title",
-                                label_visibility="collapsed"
+                                key=f"title_{i}_{st.session_state.session_id}",
+                                placeholder="Meeting title"
                             )
                             
-                            # Book button
-                            button_text = f"📅 Demo Book {slot['start']}" if not api_available else f"📅 Book {slot['start']}"
-                            if st.button(button_text, key=f"book_{i}_{slot['start']}_{len(st.session_state.messages)}", use_container_width=True):
-                                with st.spinner("Booking..."):
-                                    booking_result = book_slot(slot['datetime'], 60, meeting_title)
-                                    if booking_result['success']:
-                                        success_msg = f"✅ Demo: Would book '{meeting_title}' for {slot['start']}" if not api_available else f"✅ Booked: {meeting_title}"
-                                        st.success(success_msg)
-                                        
-                                        # Add booking confirmation to chat
-                                        confirmation_msg = f"✅ **Demo Booking Confirmed!**\n\n📅 '{meeting_title}' scheduled for {slot['start']} - {slot['end']}\n\n🎉 In the full version, this would create a real Google Calendar event with email notifications!"
-                                        
-                                        st.session_state.messages.append({
-                                            "role": "assistant", 
-                                            "content": confirmation_msg
-                                        })
-                                        st.balloons()
-                                        st.rerun()
-                                    else:
-                                        st.error(booking_result['message'])
-                    
-                    # Show more slots info
-                    if len(available_slots) > 12:
-                        st.info(f"Showing 12 of {len(available_slots)} available slots. Ask for specific times to see more!")
-            
-            st.rerun()
-        
-        # Clear chat button
-        if st.button("🗑️ Clear Chat", use_container_width=True):
-            welcome_msg = """👋 **Welcome back!**
-
-I'm your AI calendar assistant. How can I help you today?"""
-            
-            if not api_available:
-                welcome_msg += """\n\n🚀 **Demo Mode**: Try asking about availability or booking meetings!"""
-            
-            st.session_state.messages = [
-                {"role": "assistant", "content": welcome_msg}
-            ]
+                            if st.button(f"Book {slot['start']}", key=f"book_{i}_{st.session_state.session_id}", use_container_width=True):
+                                st.success(f"✅ Booked: {meeting_title} at {slot['start']}")
+                                confirmation = f"✅ **Confirmed!** {meeting_title} scheduled for {slot['start']} - {slot['end']}"
+                                st.session_state.messages.append({"role": "assistant", "content": confirmation})
+                                auto_save_chat()  # Auto-save after booking
+                                st.balloons()
+                                st.rerun()
             st.rerun()
     
-    with col2:
-        st.markdown("### 💡 Try These Examples")
-        
-        examples = [
-            "What times are free today?",
-            "Schedule a call for 2 PM", 
-            "Do you have slots this Friday?",
-            "Book a 30-minute meeting",
-            "Check tomorrow's availability",
-            "Schedule a team meeting",
-            "I need a 1-hour slot",
-            "What's free this afternoon?"
-        ]
-        
-        for i, example in enumerate(examples):
-            if st.button(f"💬 {example}", key=f"example-btn-{i}", use_container_width=True, help="Click to try this example"):
-                st.session_state.messages.append({"role": "user", "content": example})
-                if api_available:
-                    response = send_message(example)
-                else:
-                    response = demo_response(example)
-                st.session_state.messages.append({"role": "assistant", "content": response.get("response", "No response")})
-                st.rerun()
-        
-        # Status and info section
-        st.markdown("---")
-        st.markdown("### 📊 Status")
-        
-        if api_available:
-            st.success("🟢 Connected to Live Backend")
-            st.markdown("- Real Google Calendar integration")
-            st.markdown("- Live conflict checking")
-        else:
-            st.info("🟡 Demo Mode Active")
-            st.markdown("- Showcasing AI conversation flow")
-            st.markdown("- Simulated booking responses")
-        
-        st.markdown("### 🛠️ Technical Stack")
-        st.markdown("""
-        **Backend:**
-        - 🤖 **LangGraph** - AI workflow management
-        - ⚡ **FastAPI** - REST API framework
-        - 📅 **Google Calendar API** - Calendar integration
-        
-        **Frontend:**
-        - 🎨 **Streamlit** - Interactive web interface
-        - 💬 **Chat Interface** - Real-time conversations
-        
-        **Features:**
-        - Natural language processing
-        - Multi-turn conversations
-        - Conflict detection
-        - Real-time availability
-        """)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
