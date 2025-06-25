@@ -4,6 +4,14 @@ from dateutil import parser
 import calendar
 
 class NLPService:
+    def _get_next_weekday(self, weekday):
+        """Get the next occurrence of a weekday (0=Monday, 6=Sunday)"""
+        today = datetime.now().date()
+        days_ahead = weekday - today.weekday()
+        if days_ahead <= 0:
+            days_ahead += 7
+        return today + timedelta(days_ahead)
+
     def __init__(self):
         self.intent_patterns = {
             'book_appointment': [
@@ -27,21 +35,19 @@ class NLPService:
             'next week': (datetime.now() + timedelta(weeks=1)).date(),
             'this friday': self._get_next_weekday(4),
             'friday': self._get_next_weekday(4),
+            'this monday': self._get_next_weekday(0),
             'monday': self._get_next_weekday(0),
+            'this tuesday': self._get_next_weekday(1),
             'tuesday': self._get_next_weekday(1),
+            'this wednesday': self._get_next_weekday(2),
             'wednesday': self._get_next_weekday(2),
+            'this thursday': self._get_next_weekday(3),
             'thursday': self._get_next_weekday(3),
+            'this saturday': self._get_next_weekday(5),
             'saturday': self._get_next_weekday(5),
+            'this sunday': self._get_next_weekday(6),
             'sunday': self._get_next_weekday(6),
         }
-
-    def _get_next_weekday(self, weekday):
-        """Get the next occurrence of a weekday (0=Monday, 6=Sunday)"""
-        today = datetime.now().date()
-        days_ahead = weekday - today.weekday()
-        if days_ahead <= 0:
-            days_ahead += 7
-        return today + timedelta(days_ahead)
 
     def extract_intent(self, user_input: str) -> dict:
         """Extract intent from user input"""

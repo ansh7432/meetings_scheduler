@@ -1,2 +1,38 @@
+# Environment files
+.env
+*.env
+
+# Google OAuth credentials (keep both methods secure)
 credentials.json
 token.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Package files
+*.egg-info/
+dist/
+build/

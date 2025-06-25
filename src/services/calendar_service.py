@@ -1,5 +1,6 @@
 import os
 import json
+import tempfile
 from datetime import datetime, timedelta, timezone
 import pytz
 from google.auth.transport.requests import Request
@@ -7,61 +8,163 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 class CalendarService:
     def __init__(self):
         self.SCOPES = ['https://www.googleapis.com/auth/calendar']
         self.service = None
-        # Use your local timezone (India Standard Time)
-        self.local_timezone = pytz.timezone('Asia/Kolkata')
+        # Use timezone from env or default
+        timezone_str = os.getenv('TIMEZONE', 'Asia/Kolkata')
+        self.local_timezone = pytz.timezone(timezone_str)
+
+    def _create_credentials_from_env(self):
+        """Create credentials.json content from environment variables"""
+        credentials_data = {
+            "installed": {
+                "client_id": os.getenv('GOOGLE_CLIENT_ID'),
+                "project_id": os.getenv('GOOGLE_PROJECT_ID'),
+                "auth_uri": os.getenv('GOOGLE_AUTH_URI', 'https://accounts.google.com/o/oauth2/auth'),
+                "token_uri": os.getenv('GOOGLE_TOKEN_URI', 'https://oauth2.googleapis.com/token'),
+                "auth_provider_x509_cert_url": os.getenv('GOOGLE_AUTH_PROVIDER_X509_CERT_URL', 'https://www.googleapis.com/oauth2/v1/certs'),
+                "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),
+                "redirect_uris": [os.getenv('GOOGLE_REDIRECT_URIS', 'http://localhost')]
+            }
+        }
+        
+        # Validate required fields
+        required_fields = ['client_id', 'client_secret', 'project_id']
+        missing_fields = [field for field in required_fields if not credentials_data['installed'].get(field)]
+        
+        if missing_fields:
+            raise ValueError(f"Missing required Google OAuth environment variables: {', '.join(missing_fields)}")
+        
+        return credentials_data
 
     def authenticate(self):
-        """Authenticate with Google Calendar API"""
+        """Authenticate with Google Calendar API using environment variables"""
         if self.service is not None:
             return self.service
             
         creds = None
         
+        # Try to load existing token
         if os.path.exists('token.json'):
             creds = Credentials.from_authorized_user_file('token.json', self.SCOPES)
         
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                if not os.path.exists('credentials.json'):
-                    print("❌ credentials.json not found! Please place it in the project root.")
-                    return None
-                    
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    'credentials.json', self.SCOPES)
-                creds = flow.run_local_server(port=0)
+                try:
+                    creds.refresh(Request())
+                    print("✅ Google Calendar token refreshed successfully!")
+                except Exception as e:
+                    print(f"⚠️ Token refresh failed: {e}. Creating new credentials...")
+                    creds = None
             
+            if not creds:
+                try:
+                    # Try environment variables first
+                    credentials_data = self._create_credentials_from_env()
+                    
+                    # Create temporary credentials file
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as temp_file:
+                        json.dump(credentials_data, temp_file)
+                        temp_credentials_path = temp_file.name
+                    
+                    # Use temporary file for OAuth flow
+                    flow = InstalledAppFlow.from_client_secrets_file(
+                        temp_credentials_path, self.SCOPES)
+                    creds = flow.run_local_server(port=0)
+                    
+                    # Clean up temporary file
+                    os.unlink(temp_credentials_path)
+                    
+                    print("✅ Google Calendar authenticated using environment variables!")
+                    
+                except (ValueError, FileNotFoundError) as e:
+                    print(f"⚠️ Environment variables not found or incomplete: {e}")
+                    
+                    # Fallback to credentials.json file
+                    if os.path.exists('credentials.json'):
+                        print("🔄 Falling back to credentials.json file...")
+                        flow = InstalledAppFlow.from_client_secrets_file(
+                            'credentials.json', self.SCOPES)
+                        creds = flow.run_local_server(port=0)
+                        print("✅ Google Calendar authenticated using credentials.json!")
+                    else:
+                        raise Exception(
+                            "❌ No valid Google OAuth credentials found! "
+                            "Please either:\n"
+                            "1. Set environment variables (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, etc.)\n"
+                            "2. Place credentials.json in the project root"
+                        )
+            
+            # Save credentials for future use
             with open('token.json', 'w') as token:
                 token.write(creds.to_json())
 
         self.service = build('calendar', 'v3', credentials=creds)
-        print("✅ Google Calendar authenticated successfully!")
+        print("✅ Google Calendar service initialized successfully!")
         return self.service
 
-    def check_availability(self, start_time, end_time):
-        """Check if a time slot is available"""
+    def check_availability(self, start_time_str, end_time_str):
+        """Check if a specific time slot is available (NO CONFLICTS)"""
         try:
             if not self.service:
                 self.authenticate()
-                
+            
+            # Parse times and ensure they have timezone info
+            if isinstance(start_time_str, str):
+                if start_time_str.endswith('+05:30') or start_time_str.endswith('+00:00'):
+                    start_time = datetime.fromisoformat(start_time_str)
+                else:
+                    # Parse and add local timezone
+                    start_time = datetime.fromisoformat(start_time_str)
+                    if start_time.tzinfo is None:
+                        start_time = self.local_timezone.localize(start_time)
+            else:
+                start_time = start_time_str
+            
+            if isinstance(end_time_str, str):
+                if end_time_str.endswith('+05:30') or end_time_str.endswith('+00:00'):
+                    end_time = datetime.fromisoformat(end_time_str)
+                else:
+                    # Parse and add local timezone
+                    end_time = datetime.fromisoformat(end_time_str)
+                    if end_time.tzinfo is None:
+                        end_time = self.local_timezone.localize(end_time)
+            else:
+                end_time = end_time_str
+            
+            # Convert to UTC for API call
+            start_utc = start_time.astimezone(pytz.UTC)
+            end_utc = end_time.astimezone(pytz.UTC)
+            
             events_result = self.service.events().list(
                 calendarId='primary',
-                timeMin=start_time,
-                timeMax=end_time,
+                timeMin=start_utc.isoformat(),
+                timeMax=end_utc.isoformat(),
                 singleEvents=True,
                 orderBy='startTime'
             ).execute()
             
             events = events_result.get('items', [])
-            return len(events) == 0
+            
+            # If there are ANY events in this time range, it's NOT available
+            is_available = len(events) == 0
+            
+            if not is_available:
+                print(f"🔍 [CHECK_AVAILABILITY] Conflict found for {start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')}: {len(events)} events")
+            else:
+                print(f"✅ [CHECK_AVAILABILITY] Slot is free: {start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')}")
+            
+            return is_available
+            
         except Exception as e:
-            print(f"Error checking availability: {e}")
+            print(f"❌ Error checking availability: {e}")
             return False
 
     def convert_to_12_hour_format(self, time_24):
@@ -80,10 +183,14 @@ class CalendarService:
             return time_24
 
     def get_free_time_slots(self, date_str: str, duration_minutes: int = 60):
-        """Get ALL available time slots for a given date - NO LIMITS"""
+        """Get ONLY truly available time slots for a given date"""
         try:
             if not self.service:
                 self.authenticate()
+            
+            # Use duration from env if not specified
+            if duration_minutes == 60:
+                duration_minutes = int(os.getenv('DEFAULT_MEETING_DURATION', 60))
                 
             # Parse the date
             if date_str.lower() == 'today':
@@ -93,22 +200,23 @@ class CalendarService:
             else:
                 target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             
-            # EXTENDED BUSINESS HOURS: 9 AM to 9 PM (as requested)
+            # Use business hours from environment
+            start_hour = int(os.getenv('BUSINESS_HOURS_START', 9))
+            end_hour = int(os.getenv('BUSINESS_HOURS_END', 21))
+            
             start_datetime = self.local_timezone.localize(
-                datetime.combine(target_date, datetime.min.time().replace(hour=9, minute=0))
+                datetime.combine(target_date, datetime.min.time().replace(hour=start_hour, minute=0))
             )
             end_datetime = self.local_timezone.localize(
-                datetime.combine(target_date, datetime.min.time().replace(hour=21, minute=0))  # 9 PM
+                datetime.combine(target_date, datetime.min.time().replace(hour=end_hour, minute=0))
             )
             
-            # Convert to UTC for API call
+            print(f"DEBUG: Checking availability from {start_datetime} to {end_datetime} (local)")
+            
+            # Get existing events for the ENTIRE day
             start_utc = start_datetime.astimezone(pytz.UTC)
             end_utc = end_datetime.astimezone(pytz.UTC)
             
-            print(f"DEBUG: Checking availability from {start_datetime} to {end_datetime} (local)")
-            print(f"DEBUG: UTC times: {start_utc} to {end_utc}")
-            
-            # Get existing events for the ENTIRE day
             events_result = self.service.events().list(
                 calendarId='primary',
                 timeMin=start_utc.isoformat(),
@@ -173,12 +281,13 @@ class CalendarService:
                             datetime.fromisoformat(event_end_str + 'T23:59:59')
                         )
                     
-                    # Check for overlap
+                    # Check for overlap - ANY OVERLAP means conflict
                     if (current_time < event_end and slot_end > event_start):
                         is_free = False
                         print(f"DEBUG: Slot {current_time.strftime('%H:%M')}-{slot_end.strftime('%H:%M')} conflicts with event {event_start.strftime('%H:%M')}-{event_end.strftime('%H:%M')}")
                         break
                 
+                # ONLY ADD IF TRULY FREE
                 if is_free:
                     # Convert to 12-hour format for display
                     start_12hr = self.convert_to_12_hour_format(current_time.strftime('%H:%M'))
@@ -196,9 +305,8 @@ class CalendarService:
                 # Move to next 30-minute slot
                 current_time += timedelta(minutes=30)
             
-            print(f"DEBUG: Total free slots found: {len(free_slots)}")
+            print(f"DEBUG: Total TRULY FREE slots found: {len(free_slots)}")
             
-            # RETURN ALL SLOTS - NO LIMIT!
             return free_slots
             
         except Exception as e:
