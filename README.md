@@ -454,36 +454,6 @@ API_BASE_URL = "http://localhost:8000"  # For local development
 - Architecture diagrams
 - User guide examples
 
-
-### **🔧 Technical Demo Screenshots**
-
-#### **API Documentation**
-![API Docs](screenshots/api-documentation.png)
-*FastAPI auto-generated documentation*
-
-#### **ngrok Tunnel**
-![ngrok Setup](screenshots/ngrok-tunnel.png)
-*Backend exposure through ngrok*
-
-#### **Google Calendar Integration**
-![Calendar Integration](screenshots/calendar-integration.png)
-*Real-time calendar synchronization*
-
-### **📊 Performance Metrics**
-
-#### **Response Times**
-- API Response: < 500ms
-- Calendar Sync: < 1000ms
-- UI Rendering: < 200ms
-
-#### **Accuracy Metrics**
-- Intent Recognition: 95%+
-- Date/Time Parsing: 98%+
-- Conflict Detection: 100%
-
----
-
-
 ## 🏅 Evaluation Criteria Met
 
 ### **✅ Code Quality**
@@ -537,7 +507,35 @@ MIT License - see LICENSE file for details
 - **Streamlit** for rapid frontend development
 - **Google Calendar API** for calendar integration
 - **ngrok** for secure tunneling
+## NOTE:
 
+please update the requirements.txt file 
+
+```
+FastAPI==0.104.1
+uvicorn==0.24.0
+Streamlit==1.28.0
+# Environment Management
+python-dotenv==1.0.0
+# LangGraph and LangChain (Core AI)
+langgraph==0.2.16
+langchain-core==0.3.15
+# Google Calendar API
+google-auth==2.23.4
+google-api-python-client==2.108.0
+google-auth-oauthlib==1.1.0
+# Core Dependencies
+pydantic==2.5.0
+requests==2.31.0
+pytz==2023.3
+# Development
+pytest==7.4.3
+```
+if found any langgraph dependency error just do
+```
+pip install langgraph
+
+```
 ---
 
 **Built with ❤️ using LangGraph, FastAPI, and Streamlit**
