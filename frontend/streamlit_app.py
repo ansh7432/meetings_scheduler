@@ -460,7 +460,7 @@ Just ask me in plain English!"""
                 st.session_state.messages.append({"role": "assistant", "content": ai_response})
                 auto_save_chat()
             
-            st.rerun()
+           
 
     if st.session_state.current_available_slots and not st.session_state.get("show_quickbook_interface", False):
         st.markdown("---")
