@@ -207,7 +207,7 @@ def load_chat_from_history(chat_id):
             if chat["id"] == chat_id:
                 st.session_state.messages = chat["messages"].copy()
                 st.session_state.session_id = chat["session_id"]
-                st.rerun()
+                
 
 def start_new_chat():
     welcome_msg = """👋 **Welcome!**
@@ -231,7 +231,7 @@ Just ask me in plain English!"""
     st.session_state.selected_slot = None
     st.session_state.current_available_slots = []
     
-    st.rerun()
+
 
 def clear_all_history():
     st.session_state.chat_history = []
