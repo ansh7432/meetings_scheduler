@@ -272,7 +272,7 @@ def handle_quick_action(example):
     st.session_state.messages.append({"role": "assistant", "content": ai_response})
     auto_save_chat()
     
-    st.rerun()
+    
 
 def main():
     load_css()
