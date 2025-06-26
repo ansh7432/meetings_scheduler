@@ -385,82 +385,142 @@ Just ask me in plain English!"""
     
     if st.session_state.get("show_quickbook_interface", False):
         with st.expander("💬 Conversation (Minimized)", expanded=False):
-            messages_container = st.container(height=500)
-            with messages_container:
-                recent_messages = st.session_state.messages[-3:] if len(st.session_state.messages) > 3 else st.session_state.messages
-                for message in recent_messages:
-                    with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
-                
-                if len(st.session_state.messages) > 3:
-                    st.markdown("*... (showing last 3 messages)*")
+            
+            recent_messages = st.session_state.messages[-3:] if len(st.session_state.messages) > 3 else st.session_state.messages
+            for message in recent_messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+            
+            if len(st.session_state.messages) > 3:
+                st.markdown("*... (showing last 3 messages)*")
+            
     else:
-        with st.container():
-            messages_container = st.container(height=1000)
-            with messages_container:
-                for message in st.session_state.messages:
-                    with st.chat_message(message["role"]):
-                        st.markdown(message["content"])
-            
-            if st.session_state.current_available_slots and not st.session_state.get("show_quickbook_interface", False):
-                st.markdown("---")
-                
-                # Header with close button positioned to the far right
-                slot_header_col1, slot_header_col2 = st.columns([4, 1])
-                with slot_header_col1:
-                    st.markdown("### 📅 Available Time Slots - Click to Book")
-                with slot_header_col2:
-                    if st.button("✕ Close Slots", key="close_slots_btn", help="Hide time slots", use_container_width=True):
-                        st.session_state.current_available_slots = []
-                        st.session_state.show_booking_dialog = False
-                        st.session_state.selected_slot = None
-                        st.rerun()
-                
-                slots = st.session_state.current_available_slots
-                num_cols = 4
-                
-                for i in range(0, len(slots), num_cols):
-                    cols = st.columns(num_cols)
-                    
-                    for j in range(num_cols):
-                        slot_index = i + j
-                        if slot_index < len(slots):
-                            slot = slots[slot_index]
-                            
-                            with cols[j]:
-                                button_key = f"book_btn_{slot_index}_{st.session_state.session_id}_{int(time.time())}"
-                                if st.button(f"🕐 {slot['start']}", key=button_key, use_container_width=True, help=f"Book {slot['start']} - {slot['end']}"):
-                                    st.session_state.selected_slot = slot
-                                    st.session_state.show_booking_dialog = True
-                                    st.rerun()
-            
-            if prompt := st.chat_input("Type your message..."):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                auto_save_chat()
-                
-                with st.spinner("Processing..."):
-                    response = send_message(prompt) if api_available else demo_response(prompt)
-                    ai_response = response.get("response", "Sorry, I couldn't process that.")
-                    booking_info = response.get("booking_info", {})
-                    available_slots = response.get("available_slots", [])
-                    
-                    if "quickbook" in prompt.lower() or "quick book" in prompt.lower():
-                        st.session_state.current_available_slots = available_slots or demo_response("availability")["available_slots"]
-                        st.session_state.show_quickbook_interface = True
-                        st.session_state.selected_slot = None
-                    
-                    else:
-                        st.session_state.current_available_slots = []
-                        st.session_state.show_quickbook_interface = False
-                    
-                    if booking_info.get('booked'):
-                        st.success("🎉 Meeting booked successfully!")
-                        st.balloons()
-                    
-                    st.session_state.messages.append({"role": "assistant", "content": ai_response})
-                    auto_save_chat()
-                
+  
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+  
+    
+    if st.session_state.current_available_slots and not st.session_state.get("show_quickbook_interface", False):
+        st.markdown("---")
+        
+        # Header with close button positioned to the far right
+        slot_header_col1, slot_header_col2 = st.columns([4, 1])
+        with slot_header_col1:
+            st.markdown("### 📅 Available Time Slots - Click to Book")
+        with slot_header_col2:
+            if st.button("✕ Close Slots", key="close_slots_btn", help="Hide time slots", use_container_width=True):
+                st.session_state.current_available_slots = []
+                st.session_state.show_booking_dialog = False
+                st.session_state.selected_slot = None
                 st.rerun()
+        
+        slots = st.session_state.current_available_slots
+        num_cols = 4
+        
+        for i in range(0, len(slots), num_cols):
+            cols = st.columns(num_cols)
+            
+            for j in range(num_cols):
+                slot_index = i + j
+                if slot_index < len(slots):
+                    slot = slots[slot_index]
+                    
+                    with cols[j]:
+                        button_key = f"book_btn_{slot_index}_{st.session_state.session_id}_{int(time.time())}"
+                        if st.button(f"🕐 {slot['start']}", key=button_key, use_container_width=True, help=f"Book {slot['start']} - {slot['end']}"):
+                            st.session_state.selected_slot = slot
+                            st.session_state.show_booking_dialog = True
+                            st.rerun()
+    
+    # Chat input should always be available (except in quickbook mode)
+    if not st.session_state.get("show_quickbook_interface", False):
+        if prompt := st.chat_input("Type your message..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            auto_save_chat()
+            
+            with st.spinner("Processing..."):
+                response = send_message(prompt) if api_available else demo_response(prompt)
+                ai_response = response.get("response", "Sorry, I couldn't process that.")
+                booking_info = response.get("booking_info", {})
+                available_slots = response.get("available_slots", [])
+                
+                if "quickbook" in prompt.lower() or "quick book" in prompt.lower():
+                    st.session_state.current_available_slots = available_slots or demo_response("availability")["available_slots"]
+                    st.session_state.show_quickbook_interface = True
+                    st.session_state.selected_slot = None
+                else:
+                    st.session_state.current_available_slots = []
+                    st.session_state.show_quickbook_interface = False
+                
+                if booking_info.get('booked'):
+                    st.success("🎉 Meeting booked successfully!")
+                    st.balloons()
+                
+                st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                auto_save_chat()
+            
+            st.rerun()
+
+    if st.session_state.current_available_slots and not st.session_state.get("show_quickbook_interface", False):
+        st.markdown("---")
+        
+        # Header with close button positioned to the far right
+        slot_header_col1, slot_header_col2 = st.columns([4, 1])
+        with slot_header_col1:
+            st.markdown("### 📅 Available Time Slots - Click to Book")
+        with slot_header_col2:
+            if st.button("✕ Close Slots", key="close_slots_btn", help="Hide time slots", use_container_width=True):
+                st.session_state.current_available_slots = []
+                st.session_state.show_booking_dialog = False
+                st.session_state.selected_slot = None
+                st.rerun()
+        
+        slots = st.session_state.current_available_slots
+        num_cols = 4
+        
+        for i in range(0, len(slots), num_cols):
+            cols = st.columns(num_cols)
+            
+            for j in range(num_cols):
+                slot_index = i + j
+                if slot_index < len(slots):
+                    slot = slots[slot_index]
+                    
+                    with cols[j]:
+                        button_key = f"book_btn_{slot_index}_{st.session_state.session_id}_{int(time.time())}"
+                        if st.button(f"🕐 {slot['start']}", key=button_key, use_container_width=True, help=f"Book {slot['start']} - {slot['end']}"):
+                            st.session_state.selected_slot = slot
+                            st.session_state.show_booking_dialog = True
+                            st.rerun()
+        
+        if prompt := st.chat_input("Type your message..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            auto_save_chat()
+            
+            with st.spinner("Processing..."):
+                response = send_message(prompt) if api_available else demo_response(prompt)
+                ai_response = response.get("response", "Sorry, I couldn't process that.")
+                booking_info = response.get("booking_info", {})
+                available_slots = response.get("available_slots", [])
+                
+                if "quickbook" in prompt.lower() or "quick book" in prompt.lower():
+                    st.session_state.current_available_slots = available_slots or demo_response("availability")["available_slots"]
+                    st.session_state.show_quickbook_interface = True
+                    st.session_state.selected_slot = None
+                
+                else:
+                    st.session_state.current_available_slots = []
+                    st.session_state.show_quickbook_interface = False
+                
+                if booking_info.get('booked'):
+                    st.success("🎉 Meeting booked successfully!")
+                    st.balloons()
+                
+                st.session_state.messages.append({"role": "assistant", "content": ai_response})
+                auto_save_chat()
+            
+            st.rerun()
 
     if st.session_state.get("show_quickbook_interface", False) and st.session_state.current_available_slots:
         

@@ -827,4 +827,92 @@ footer {visibility: hidden;}
         font-size: 16px !important;
         padding: 12px !important;
     }
+}/* Chat Container Styling - Fixed height with proper containment */
+.chat-container-large {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 10px 0;
+    height: 600px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-container-minimized {
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 15px;
+    margin: 10px 0;
+    height: 300px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ensure chat messages stay within container boundaries */
+.chat-container-large [data-testid="chatMessage"],
+.chat-container-minimized [data-testid="chatMessage"],
+.chat-container-large [data-testid="chat-message-user"],
+.chat-container-minimized [data-testid="chat-message-user"],
+.chat-container-large [data-testid="chat-message-assistant"],
+.chat-container-minimized [data-testid="chat-message-assistant"] {
+    margin: 10px 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+/* Force chat content to stay within container */
+.chat-container-large > div,
+.chat-container-minimized > div {
+    max-width: 100%;
+    overflow: visible;
+    flex-shrink: 0;
+}
+
+/* Enhanced scrollbar styling for chat containers */
+.chat-container-large::-webkit-scrollbar,
+.chat-container-minimized::-webkit-scrollbar {
+    width: 12px;
+}
+
+.chat-container-large::-webkit-scrollbar-track,
+.chat-container-minimized::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.chat-container-large::-webkit-scrollbar-thumb,
+.chat-container-minimized::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #475569, #334155);
+    border-radius: 6px;
+    border: 1px solid #555;
+}
+
+.chat-container-large::-webkit-scrollbar-thumb:hover,
+.chat-container-minimized::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #64748b, #475569);
+}
+
+/* Prevent page scrolling when chat container is present */
+.main .block-container:has(.chat-container-large) {
+    overflow: hidden;
+}
+
+/* Auto-scroll to bottom behavior */
+.chat-container-large {
+    scroll-snap-type: y mandatory;
+}
+
+.chat-container-large [data-testid="chat-message-assistant"]:last-child,
+.chat-container-large [data-testid="chat-message-user"]:last-child {
+    scroll-snap-align: end;
 }
